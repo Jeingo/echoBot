@@ -27,6 +27,8 @@ dependencies:
 - http-conduit
 - bytestring
 - utf8-string
+- aeson
+- vector
 
 library:
   source-dirs: src
