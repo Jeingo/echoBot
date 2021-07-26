@@ -16,24 +16,21 @@ main :: IO ()
 main = do
   conf <- readConfig >>= makeMyConfig
   myIni <- doRequest >>= makeMyInitResp
-  mainFunc conf myIni
+  mainFunc conf myIni 
   return ()
 
 --data
 data ConfData = ConfData { helpText :: String
                          , repeatText :: String
-                         , startRepeat :: String 
+                         , startRepeat :: Int 
                          } deriving (Show)
 
 data InitReq = InitTg { updateId :: Int 
                       , justId :: Int 
                       , message :: T.Text 
-                      , username :: T.Text 
                       } deriving (Show)
 
-data Env = Env { getInit :: InitReq
-               , getConf :: ConfData 
-               }
+
 
 --configurator
 readConfig :: IO CT.Config 
@@ -43,7 +40,7 @@ makeMyConfig :: CT.Config -> IO ConfData
 makeMyConfig conf = do
   hT <- C.require conf (T.pack "main.helpText") :: IO String
   rT <- C.require conf (T.pack "main.repeatText") :: IO String
-  sR <- C.require conf (T.pack "main.startRepeat") :: IO String
+  sR <- C.require conf (T.pack "main.startRepeat") :: IO Int 
   return $ ConfData hT rT sR
   
 readToken :: IO String 
@@ -69,7 +66,7 @@ makeMyInitResp resp = do
 
 helper :: Maybe InitReq -> InitReq
 helper (Just a) = a
-helper Nothing = InitTg 1 1 " " " "
+helper Nothing = InitTg 1 1 " "
 
 --jsonParser
 instance FromJSON InitReq where
@@ -81,12 +78,41 @@ instance FromJSON InitReq where
     mesg <- mes .: "text" 
     from <- mes .: "from"
     jId <- from .: "id"
-    un <- from .: "username"
-    return $ InitTg upId jId mesg un
+    return $ InitTg upId jId mesg 
 
   parseJSON _ = mzero
 
+
 --main Func
-mainFunc :: ConfData -> InitReq -> IO ()
+mainFunc :: ConfData -> InitReq ->  IO ()
 mainFunc conf fstInit = do
+  --print $ message fstInit
+  case ( message fstInit ) of
+    "/help" -> print $ helpText conf
+    "/repeat" -> print $ repeatText conf
+    _ -> print "Word"
+  tok <- readToken
+  let req = sendMessage tok fstInit
+  _ <- N.httpNoBody $ N.parseRequest_ $ req 
+  nextStep fstInit
   return ()
+
+nextStep :: InitReq -> IO ()
+nextStep fstIn = do
+  tok <- readToken
+  let offset = show $ (updateId fstIn) + 1
+  let req = "https://api.telegram.org/bot" ++ tok ++ "/getUpdates" ++ "?offset=" ++ offset 
+  _ <- N.httpNoBody $ N.parseRequest_ $ req 
+  return ()
+
+
+sendMessage :: String -> InitReq -> String
+sendMessage tok initR = "https://api.telegram.org/bot" ++ tok ++ "/sendMessage" ++ "?chat_id=" ++ chatId ++ "&text=" ++ textMess 
+  where chatId = show $ updateId initR
+        textMess = T.unpack $ message initR
+
+
+
+
+
+
