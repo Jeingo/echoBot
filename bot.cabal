@@ -37,6 +37,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , configurator
+    , containers
     , http-conduit
     , text
     , utf8-string
@@ -56,6 +57,7 @@ executable bot-exe
     , bot
     , bytestring
     , configurator
+    , containers
     , http-conduit
     , text
     , utf8-string
@@ -76,6 +78,7 @@ test-suite bot-test
     , bot
     , bytestring
     , configurator
+    , containers
     , http-conduit
     , text
     , utf8-string

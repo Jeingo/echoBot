@@ -8,15 +8,16 @@ import qualified Network.HTTP.Simple as N
 import qualified Data.ByteString.UTF8 as B8
 import qualified Data.ByteString as B
 import qualified Data.Vector as V
+import qualified Data.Map as Map
 import Data.Aeson
 import System.IO()
 import Control.Monad (mzero)
 
+--mainFunc
 main :: IO ()
 main = do
   conf <- readConfig >>= makeMyConfig
-  myIni <- doRequest >>= makeMyInitResp
-  mainFunc conf myIni 
+  mainFunc conf [(0, 1)]
   return ()
 
 --data
@@ -84,16 +85,16 @@ instance FromJSON InitReq where
 
 
 --main Func
-mainFunc :: ConfData -> InitReq ->  IO ()
-mainFunc conf fstInit = do
-  --print $ message fstInit
+mainFunc :: ConfData -> [(Int, Int)] -> IO ()
+mainFunc conf counter = do
+  fstInit <- doRequest >>= makeMyInitResp
   case ( message fstInit ) of
     "/help" -> print $ helpText conf
     "/repeat" -> print $ repeatText conf
-    _ -> print "Word"
+    _ -> superFunc 3 (message fstInit) 
   tok <- readToken
   let req = sendMessage tok fstInit
-  _ <- N.httpNoBody $ N.parseRequest_ $ req 
+  N.httpNoBody $ N.parseRequest_ $ req 
   nextStep fstInit
   return ()
 
@@ -108,11 +109,14 @@ nextStep fstIn = do
 
 sendMessage :: String -> InitReq -> String
 sendMessage tok initR = "https://api.telegram.org/bot" ++ tok ++ "/sendMessage" ++ "?chat_id=" ++ chatId ++ "&text=" ++ textMess 
-  where chatId = show $ updateId initR
+  where chatId = show $ justId initR
         textMess = T.unpack $ message initR
 
+superFunc :: Int -> T.Text -> IO ()
+superFunc count text = do
+  let words = replicate count text
+  mapM_ (\s -> print s) words
 
-
-
-
+--checkUser req arr = 
+--  where us = justId req
 
