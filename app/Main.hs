@@ -17,7 +17,7 @@ import Control.Monad (mzero)
 main :: IO ()
 main = do
   conf <- readConfig >>= makeMyConfig
-  mainFunc conf [(0, 1)]
+  mainFunc conf $ Map.empty
   return ()
 
 --data
@@ -85,16 +85,22 @@ instance FromJSON InitReq where
 
 
 --main Func
-mainFunc :: ConfData -> [(Int, Int)] -> IO ()
+mainFunc :: ConfData -> Map.Map Int Int -> IO ()
 mainFunc conf counter = do
   fstInit <- doRequest >>= makeMyInitResp
+  let newCounter = if Map.member (justId fstInit) counter
+                      then counter 
+                      else Map.insert (justId fstInit) (startRepeat conf) counter
+  print conf
+  print fstInit
+  print newCounter
   case ( message fstInit ) of
     "/help" -> print $ helpText conf
     "/repeat" -> print $ repeatText conf
-    _ -> superFunc 3 (message fstInit) 
-  tok <- readToken
-  let req = sendMessage tok fstInit
-  N.httpNoBody $ N.parseRequest_ $ req 
+    _ -> superFunc (Map.lookup (justId fstInit) newCounter) fstInit 
+  --tok <- readToken
+  --let req = sendMessage tok fstInit
+  --N.httpNoBody $ N.parseRequest_ $ req 
   nextStep fstInit
   return ()
 
@@ -112,11 +118,15 @@ sendMessage tok initR = "https://api.telegram.org/bot" ++ tok ++ "/sendMessage" 
   where chatId = show $ justId initR
         textMess = T.unpack $ message initR
 
-superFunc :: Int -> T.Text -> IO ()
-superFunc count text = do
-  let words = replicate count text
-  mapM_ (\s -> print s) words
+superFunc :: Maybe Int -> InitReq -> IO ()
+superFunc count fstInit = do
+  let counter = case count of
+                    Just a -> a
+                    Nothing -> error "Can't parse the chat id"
+  let words = replicate counter (message fstInit) 
+  --mapM_ (\s -> print s) words
+  tok <- readToken
+  let req = sendMessage tok fstInit
+  mapM_ (\s -> N.httpNoBody $ N.parseRequest_ $ req) words
 
---checkUser req arr = 
---  where us = justId req
 
