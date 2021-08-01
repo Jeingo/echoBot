@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
-
 import qualified Data.Configurator as C
 import qualified Data.Configurator.Types as CT
 import qualified Data.Text as T
@@ -95,12 +94,9 @@ mainFunc conf counter = do
   print fstInit
   print newCounter
   case ( message fstInit ) of
-    "/help" -> print $ helpText conf
-    "/repeat" -> print $ repeatText conf
-    _ -> superFunc (Map.lookup (justId fstInit) newCounter) fstInit 
-  --tok <- readToken
-  --let req = sendMessage tok fstInit
-  --N.httpNoBody $ N.parseRequest_ $ req 
+    "/help" -> sendHelpText (helpText conf) fstInit
+    "/repeat" -> testKeyboard fstInit 3 
+    _ -> sendMesToTg (Map.lookup (justId fstInit) newCounter) fstInit 
   nextStep fstInit
   return ()
 
@@ -109,7 +105,15 @@ nextStep fstIn = do
   tok <- readToken
   let offset = show $ (updateId fstIn) + 1
   let req = "https://api.telegram.org/bot" ++ tok ++ "/getUpdates" ++ "?offset=" ++ offset 
-  _ <- N.httpNoBody $ N.parseRequest_ $ req 
+  N.httpNoBody $ N.parseRequest_ $ req 
+  return ()
+  
+sendHelpText :: String -> InitReq -> IO ()
+sendHelpText helpT fstInit = do
+  tok <- readToken
+  let chatId = show $ justId fstInit
+  let req = "https://api.telegram.org/bot" ++ tok ++ "/sendMessage" ++ "?chat_id=" ++ chatId ++ "&text=" ++ helpT 
+  N.httpNoBody $ N.parseRequest_ $ req
   return ()
 
 
@@ -118,15 +122,35 @@ sendMessage tok initR = "https://api.telegram.org/bot" ++ tok ++ "/sendMessage" 
   where chatId = show $ justId initR
         textMess = T.unpack $ message initR
 
-superFunc :: Maybe Int -> InitReq -> IO ()
-superFunc count fstInit = do
+sendMesToTg :: Maybe Int -> InitReq -> IO ()
+sendMesToTg count fstInit = do
   let counter = case count of
                     Just a -> a
-                    Nothing -> error "Can't parse the chat id"
+                    Nothing -> 1
   let words = replicate counter (message fstInit) 
   --mapM_ (\s -> print s) words
   tok <- readToken
   let req = sendMessage tok fstInit
   mapM_ (\s -> N.httpNoBody $ N.parseRequest_ $ req) words
+
+testKeyboard :: InitReq -> Int -> IO ()
+testKeyboard fstInit num = do
+  tok <- readToken
+  let chatId = show $ justId fstInit
+  --let req = "https://api.telegram.org/bot" ++ tok ++ "/sendMessage" ++ "?reply_markup=" ++ '{"inline_keyboard":[[{"text":"1","callback_data":"1"}],[{"text":"2","callback_data":"2"}]]}'
+  let req = " "
+  N.httpNoBody $ N.parseRequest_ $ req
+  return ()
+
+
+
+
+
+
+
+
+
+
+
 
 
