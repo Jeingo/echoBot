@@ -23,6 +23,7 @@ main = do
 data ConfData = ConfData { helpText :: String
                          , repeatText :: String
                          , startRepeat :: Int 
+                         , button :: String
                          } deriving (Show)
 
 data InitReq = InitTg { updateId :: Int 
@@ -41,7 +42,8 @@ makeMyConfig conf = do
   hT <- C.require conf (T.pack "main.helpText") :: IO String
   rT <- C.require conf (T.pack "main.repeatText") :: IO String
   sR <- C.require conf (T.pack "main.startRepeat") :: IO Int 
-  return $ ConfData hT rT sR
+  bt <- C.require conf (T.pack "main.button") :: IO String
+  return $ ConfData hT rT sR bt
   
 readToken :: IO String 
 readToken = do
@@ -93,10 +95,16 @@ mainFunc conf counter = do
   print conf
   print fstInit
   print newCounter
+  putStrLn $ button conf
+  let counter b = case b of
+                    Just a -> a
+                    Nothing -> 1
   case ( message fstInit ) of
     "/help" -> sendHelpText (helpText conf) fstInit
-    "/repeat" -> testKeyboard fstInit 3 
+    "/repeat" -> testKeyboard (B8.fromString $ button conf) fstInit
     _ -> sendMesToTg (Map.lookup (justId fstInit) newCounter) fstInit 
+--  let num = if (message fstInit) == "/repeat"
+--     then 
   nextStep fstInit
   return ()
 
@@ -133,18 +141,15 @@ sendMesToTg count fstInit = do
   let req = sendMessage tok fstInit
   mapM_ (\s -> N.httpNoBody $ N.parseRequest_ $ req) words
 
-testKeyboard :: InitReq -> Int -> IO ()
-testKeyboard fstInit num = do
-  tok <- readToken
-  let chatId = show $ justId fstInit
-  --let req = "https://api.telegram.org/bot" ++ tok ++ "/sendMessage" ++ "?reply_markup=" ++ '{"inline_keyboard":[[{"text":"1","callback_data":"1"}],[{"text":"2","callback_data":"2"}]]}'
-  let req = " "
-  N.httpNoBody $ N.parseRequest_ $ req
-  return ()
 
-
-
-
+testKeyboard :: B.ByteString -> InitReq -> IO () 
+testKeyboard keyB fstInit = do
+  tok <- readToken 
+  let chatId = B8.fromString $ show $  justId fstInit
+  request' <- N.parseRequest $ "POST https://api.telegram.org/bot" ++ tok ++ "/sendMessage"
+  let req = N.setRequestQueryString [("chat_id", Just $ chatId), ("text", Just "Choose how many repeating:"), ("reply_markup", Just keyB)] $ request'
+  N.httpNoBody req
+  return () 
 
 
 
