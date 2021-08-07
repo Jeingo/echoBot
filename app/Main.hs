@@ -147,14 +147,18 @@ testKeyboard keyB fstInit = do
   tok <- readToken 
   let chatId = B8.fromString $ show $  justId fstInit
   request' <- N.parseRequest $ "POST https://api.telegram.org/bot" ++ tok ++ "/sendMessage"
-  let req = N.setRequestQueryString [("chat_id", Just $ chatId), ("text", Just "Choose how many repeating:"), ("reply_markup", Just keyB)] $ request'
+  let req = N.setRequestQueryString [("chat_id", Just $ chatId),
+                                     ("text", Just "Choose how many repeating:"), 
+                                     ("reply_markup", Just keyB)] $ request'
   N.httpNoBody req
   return () 
 
 
 
 
-
+  -- Нужно будет добавить в основную функцию обработку чисел с клавиатуры
+  -- Для этого нужно будет дополнить парсер Aeson в InitReq
+  -- То есть фокус на аесон а затем основную функцию
 
 
 
