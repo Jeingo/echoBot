@@ -95,7 +95,6 @@ mainFunc conf counter = do
   print conf
   print fstInit
   print newCounter
-  putStrLn $ button conf
   let counter b = case b of
                     Just a -> a
                     Nothing -> 1
@@ -158,8 +157,7 @@ testKeyboard keyB fstInit = do
 
   -- Нужно будет добавить в основную функцию обработку чисел с клавиатуры
   -- Для этого нужно будет дополнить парсер Aeson в InitReq
-  -- То есть фокус на аесон а затем основную функцию
-
-
+  -- То есть фокус на аесон а затем основную 
+  -- test
 
 
