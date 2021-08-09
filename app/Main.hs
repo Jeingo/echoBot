@@ -31,6 +31,11 @@ data InitReq = InitTg { updateId :: Int
                       , message :: T.Text 
                       } deriving (Show)
 
+data InitReqButton = InitTgB { updateIdB :: Int
+                             , justIdB :: Int
+                             , countB :: Int
+                             } deriving (Show)
+
 
 
 --configurator
@@ -83,6 +88,12 @@ instance FromJSON InitReq where
     return $ InitTg upId jId mesg 
 
   parseJSON _ = mzero
+
+instance FromJSON InitReqButton where
+  parseJSON (Object req) = do
+    result <- req .: "result"
+    let arr = V.head result
+    upId <- arr .: "update_id"
 
 
 --main Func
@@ -158,6 +169,5 @@ testKeyboard keyB fstInit = do
   -- Нужно будет добавить в основную функцию обработку чисел с клавиатуры
   -- Для этого нужно будет дополнить парсер Aeson в InitReq
   -- То есть фокус на аесон а затем основную 
-  -- test
-
+  -- Создать новый тип данных - и затем в main добавить ветвление (или кнопка или слово )
 
