@@ -88,13 +88,18 @@ instance FromJSON InitReq where
     return $ InitTg upId jId mesg 
 
   parseJSON _ = mzero
-
+    {--
 instance FromJSON InitReqButton where
   parseJSON (Object req) = do
     result <- req .: "result"
     let arr = V.head result
     upId <- arr .: "update_id"
-
+    callback <- arr .: "callback_query"
+    count <- callback .: "data"
+    from <- callback .: "from"
+    jId <- from .: "id"
+    return InitTgB upId jId count
+--}
 
 --main Func
 mainFunc :: ConfData -> Map.Map Int Int -> IO ()
