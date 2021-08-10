@@ -29,12 +29,12 @@ data ConfData = ConfData { helpText :: String
 data InitReq = InitTg { updateId :: Int 
                       , justId :: Int 
                       , message :: T.Text 
-                      } deriving (Show)
+                      } deriving (Show, Eq)
 
 data InitReqButton = InitTgB { updateIdB :: Int
                              , justIdB :: Int
-                             , countB :: Int
-                             } deriving (Show)
+                             , countB :: T.Text
+                             } deriving (Show, Eq)
 
 
 
@@ -71,9 +71,19 @@ makeMyInitResp resp = do
   let res = helper myInit 
   return res 
 
+makeMyInitRespB :: B.ByteString -> IO InitReqButton
+makeMyInitRespB resp = do
+  let myInit = decodeStrict resp :: Maybe InitReqButton
+  let res = helperB myInit
+  return res
+
 helper :: Maybe InitReq -> InitReq
 helper (Just a) = a
 helper Nothing = InitTg 1 1 " "
+
+helperB :: Maybe InitReqButton -> InitReqButton
+helperB (Just a) = a
+helperB Nothing = InitTgB 1 1 " " 
 
 --jsonParser
 instance FromJSON InitReq where
@@ -88,7 +98,7 @@ instance FromJSON InitReq where
     return $ InitTg upId jId mesg 
 
   parseJSON _ = mzero
-    {--
+
 instance FromJSON InitReqButton where
   parseJSON (Object req) = do
     result <- req .: "result"
@@ -98,29 +108,33 @@ instance FromJSON InitReqButton where
     count <- callback .: "data"
     from <- callback .: "from"
     jId <- from .: "id"
-    return InitTgB upId jId count
---}
+    return $ InitTgB upId jId count
+
+  parseJSON _ = mzero
+
 
 --main Func
 mainFunc :: ConfData -> Map.Map Int Int -> IO ()
 mainFunc conf counter = do
-  fstInit <- doRequest >>= makeMyInitResp
+  fstInitTmp <- doRequest
+  fstInit <- makeMyInitResp fstInitTmp
+  fstInitB <- makeMyInitRespB fstInitTmp
+
   let newCounter = if Map.member (justId fstInit) counter
                       then counter 
                       else Map.insert (justId fstInit) (startRepeat conf) counter
-  print conf
-  print fstInit
-  print newCounter
-  let counter b = case b of
-                    Just a -> a
-                    Nothing -> 1
-  case ( message fstInit ) of
-    "/help" -> sendHelpText (helpText conf) fstInit
-    "/repeat" -> testKeyboard (B8.fromString $ button conf) fstInit
-    _ -> sendMesToTg (Map.lookup (justId fstInit) newCounter) fstInit 
---  let num = if (message fstInit) == "/repeat"
---     then 
+  if (fstInit /= (InitTg 1 1 " "))
+    then do
+          case ( message fstInit ) of
+            "/help" -> sendHelpText (helpText conf) fstInit
+            "/repeat" -> testKeyboard (B8.fromString $ button conf) fstInit
+            _ -> sendMesToTg (Map.lookup (justId fstInit) newCounter) fstInit 
+    else do
+          print $ countB fstInitB        
+          nextStepB fstInitB
+
   nextStep fstInit
+
   return ()
 
 nextStep :: InitReq -> IO ()
@@ -130,6 +144,15 @@ nextStep fstIn = do
   let req = "https://api.telegram.org/bot" ++ tok ++ "/getUpdates" ++ "?offset=" ++ offset 
   N.httpNoBody $ N.parseRequest_ $ req 
   return ()
+
+nextStepB :: InitReqButton -> IO ()
+nextStepB fstIn = do
+  tok <- readToken
+  let offset = show $ (updateIdB fstIn) + 1
+  let req = "https://api.telegram.org/bot" ++ tok ++ "/getUpdates" ++ "?offset=" ++ offset 
+  N.httpNoBody $ N.parseRequest_ $ req 
+  return ()
+
   
 sendHelpText :: String -> InitReq -> IO ()
 sendHelpText helpT fstInit = do
