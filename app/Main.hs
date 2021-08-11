@@ -123,18 +123,20 @@ mainFunc conf counter = do
   let newCounter = if Map.member (justId fstInit) counter
                       then counter 
                       else Map.insert (justId fstInit) (startRepeat conf) counter
+
   if (fstInit /= (InitTg 1 1 " "))
     then do
           case ( message fstInit ) of
             "/help" -> sendHelpText (helpText conf) fstInit
             "/repeat" -> testKeyboard (B8.fromString $ button conf) fstInit
             _ -> sendMesToTg (Map.lookup (justId fstInit) newCounter) fstInit 
+          nextStep fstInit
     else do
-          print $ countB fstInitB        
+          let newC = read $ T.unpack (countB fstInitB) :: Int
+          let tmp = Map.insert (justIdB fstInitB) newC counter
+          print tmp        
           nextStepB fstInitB
-
-  nextStep fstInit
-
+  
   return ()
 
 nextStep :: InitReq -> IO ()
@@ -191,11 +193,4 @@ testKeyboard keyB fstInit = do
   N.httpNoBody req
   return () 
 
-
-
-
-  -- Нужно будет добавить в основную функцию обработку чисел с клавиатуры
-  -- Для этого нужно будет дополнить парсер Aeson в InitReq
-  -- То есть фокус на аесон а затем основную 
-  -- Создать новый тип данных - и затем в main добавить ветвление (или кнопка или слово )
 
