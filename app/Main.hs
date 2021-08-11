@@ -131,11 +131,14 @@ mainFunc conf counter = do
             "/repeat" -> testKeyboard (B8.fromString $ button conf) fstInit
             _ -> sendMesToTg (Map.lookup (justId fstInit) newCounter) fstInit 
           nextStep fstInit
+          print newCounter
+          mainFunc conf newCounter
     else do
           let newC = read $ T.unpack (countB fstInitB) :: Int
-          let tmp = Map.insert (justIdB fstInitB) newC counter
-          print tmp        
+          let newCounterB = Map.insert (justIdB fstInitB) newC counter
           nextStepB fstInitB
+          print newCounterB
+          mainFunc conf newCounterB 
   
   return ()
 
