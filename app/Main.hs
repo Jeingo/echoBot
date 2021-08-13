@@ -36,7 +36,7 @@ data InitReqButton = InitTgB { updateIdB :: Int
                              , countB :: T.Text
                              } deriving (Show, Eq)
 
-
+newtype BoolReq = BoolReq Bool
 
 --configurator
 readConfig :: IO CT.Config 
@@ -77,6 +77,12 @@ makeMyInitRespB resp = do
   let res = helperB myInit
   return res
 
+makeMyInitNull :: B.ByteString -> IO BoolReq
+makeMyInitNull resp = do
+  let myInit = decodeStrict resp :: Maybe BoolReq
+  let res = helperN myInit
+  return res
+
 helper :: Maybe InitReq -> InitReq
 helper (Just a) = a
 helper Nothing = InitTg 1 1 " "
@@ -84,6 +90,10 @@ helper Nothing = InitTg 1 1 " "
 helperB :: Maybe InitReqButton -> InitReqButton
 helperB (Just a) = a
 helperB Nothing = InitTgB 1 1 " " 
+
+helperN :: Maybe BoolReq -> BoolReq
+helperN (Just a) = a 
+helperN Nothing = BoolReq False
 
 --jsonParser
 instance FromJSON InitReq where
@@ -112,6 +122,15 @@ instance FromJSON InitReqButton where
 
   parseJSON _ = mzero
 
+
+instance FromJSON BoolReq where
+  parseJSON (Object req) = do
+    result <- req .: "result"
+    let arr = V.null result
+    res <- arr .: "null"
+    return $ BoolReq arr
+
+  parseJSON _ = mzero
 
 --main Func
 mainFunc :: ConfData -> Map.Map Int Int -> IO ()
