@@ -36,6 +36,11 @@ data InitReqButton = InitTgB { updateIdB :: Int
                              , countB :: T.Text
                              } deriving (Show, Eq)
 
+data InitReqOther = InitTgO { updateIdO :: Int
+                            , justIdO :: Int
+                            , fileId :: T.Text
+                            } deriving (Show, Eq)
+
 newtype BoolReq = BoolReq () deriving (Show, Eq) 
 
 --configurator
@@ -77,6 +82,12 @@ makeMyInitRespB resp = do
   let res = helperB myInit
   return res
 
+makeMyInitRespO :: B.ByteString -> IO InitReqOther
+makeMyInitRespO resp = do
+  let myInit = decodeStrict resp :: Maybe InitReqOther
+  let res = helperO myInit
+  return res
+
 makeMyInitNull :: B.ByteString -> Maybe BoolReq
 makeMyInitNull resp = decodeStrict resp :: Maybe BoolReq
  -- let res = helperN myInit
@@ -89,9 +100,10 @@ helperB :: Maybe InitReqButton -> InitReqButton
 helperB (Just a) = a
 helperB Nothing = InitTgB 1 1 " " 
 
-helperN :: Maybe BoolReq -> BoolReq
-helperN (Just a) = a 
-helperN Nothing = BoolReq ()
+
+helperO :: Maybe InitReqOther -> InitReqOther
+helperO (Just a) = a
+helperO Nothing = InitTgO 1 1 " " 
 
 --jsonParser
 instance FromJSON InitReq where
@@ -104,6 +116,21 @@ instance FromJSON InitReq where
     from <- mes .: "from"
     jId <- from .: "id"
     return $ InitTg upId jId mesg 
+
+  parseJSON _ = mzero
+
+--addition
+instance FromJSON InitReqOther where
+  parseJSON (Object req) = do 
+    result <- req .: "result"
+    let arr = V.head result
+    upId <- arr .: "update_id"
+    mes <- arr .: "message"
+    stick <- mes .: "sticker" 
+    from <- mes .: "from"
+    jId <- from .: "id"
+    fId <- stick .: "file_id"
+    return $ InitTgO upId jId fId 
 
   parseJSON _ = mzero
 
@@ -136,27 +163,37 @@ mainFunc conf counter = do
   if fstInitN == Just (BoolReq ())
      then mainFunc conf counter
      else return ()
+  fstInitO <- makeMyInitRespO fstInitTmp
   fstInit <- makeMyInitResp fstInitTmp
   fstInitB <- makeMyInitRespB fstInitTmp
+  
+  print fstInitO
 
   let newCounter = if Map.member (justId fstInit) counter
                       then counter 
                       else Map.insert (justId fstInit) (startRepeat conf) counter
-
-  if (fstInit /= (InitTg 1 1 " "))
+  if (fstInit /= (InitTg 1 1 " " ))
     then do
+          print "1"
           case ( message fstInit ) of
             "/help" -> sendHelpText (helpText conf) fstInit
             "/repeat" -> testKeyboard (B8.fromString $ button conf) fstInit
             _ -> sendMesToTg (Map.lookup (justId fstInit) newCounter) fstInit 
           nextStep fstInit
           mainFunc conf newCounter
-    else do
-          let newC = read $ T.unpack (countB fstInitB) :: Int
-          let newCounterB = Map.insert (justIdB fstInitB) newC counter
-          nextStepB fstInitB
-          mainFunc conf newCounterB 
+    else if (fstInitB /= (InitTgB 1 1 " "))
+           then do
+                 print "2"
+                 let newC = read $ T.unpack (countB fstInitB) :: Int
+                 let newCounterB = Map.insert (justIdB fstInitB) newC counter
+                 nextStepB fstInitB
+                 mainFunc conf newCounterB 
   
+           else do
+                 print "3"
+                 sendMesToTgOther (Map.lookup (justIdO fstInitO) newCounter) fstInitO 
+                 nextStepO fstInitO
+                 mainFunc conf newCounter
   return ()
 
 nextStep :: InitReq -> IO ()
@@ -175,6 +212,13 @@ nextStepB fstIn = do
   N.httpNoBody $ N.parseRequest_ $ req 
   return ()
 
+nextStepO :: InitReqOther -> IO ()
+nextStepO fstIn = do
+  tok <- readToken
+  let offset = show $ (updateIdO fstIn) + 1
+  let req = "https://api.telegram.org/bot" ++ tok ++ "/getUpdates" ++ "?offset=" ++ offset 
+  N.httpNoBody $ N.parseRequest_ $ req 
+  return ()
   
 sendHelpText :: String -> InitReq -> IO ()
 sendHelpText helpT fstInit = do
@@ -190,17 +234,30 @@ sendMessage tok initR = "https://api.telegram.org/bot" ++ tok ++ "/sendMessage" 
   where chatId = show $ justId initR
         textMess = T.unpack $ message initR
 
+sendMessageO :: String -> InitReqOther -> String
+sendMessageO tok initR = "https://api.telegram.org/bot" ++ tok ++ "/sendAnimation" ++ "?chat_id=" ++ chatId ++ "&animation=" ++ fId 
+  where chatId = show $ justIdO initR
+        fId = T.unpack $ fileId initR
+
 sendMesToTg :: Maybe Int -> InitReq -> IO ()
 sendMesToTg count fstInit = do
   let counter = case count of
                     Just a -> a
                     Nothing -> 1
   let words = replicate counter (message fstInit) 
-  --mapM_ (\s -> print s) words
   tok <- readToken
   let req = sendMessage tok fstInit
   mapM_ (\s -> N.httpNoBody $ N.parseRequest_ $ req) words
 
+sendMesToTgOther :: Maybe Int -> InitReqOther -> IO ()
+sendMesToTgOther count fstInit = do
+  let counter = case count of
+                    Just a -> a
+                    Nothing -> 1
+  let words = replicate counter (fileId fstInit) 
+  tok <- readToken
+  let req = sendMessageO tok fstInit
+  mapM_ (\s -> N.httpNoBody $ N.parseRequest_ $ req) words
 
 testKeyboard :: B.ByteString -> InitReq -> IO () 
 testKeyboard keyB fstInit = do
