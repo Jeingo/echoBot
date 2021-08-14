@@ -36,7 +36,7 @@ data InitReqButton = InitTgB { updateIdB :: Int
                              , countB :: T.Text
                              } deriving (Show, Eq)
 
-newtype BoolReq = BoolReq Bool
+newtype BoolReq = BoolReq () deriving (Show, Eq) 
 
 --configurator
 readConfig :: IO CT.Config 
@@ -57,7 +57,7 @@ readToken = do
 
 --first request
 simpRequest :: String -> String
-simpRequest tok = "https://api.telegram.org/bot" ++ tok ++ "/getUpdates" ++ "?timeout=15"
+simpRequest tok = "https://api.telegram.org/bot" ++ tok ++ "/getUpdates" ++ "?timeout=30"
 
 doRequest :: IO B.ByteString 
 doRequest = do
@@ -77,11 +77,9 @@ makeMyInitRespB resp = do
   let res = helperB myInit
   return res
 
-makeMyInitNull :: B.ByteString -> IO BoolReq
-makeMyInitNull resp = do
-  let myInit = decodeStrict resp :: Maybe BoolReq
-  let res = helperN myInit
-  return res
+makeMyInitNull :: B.ByteString -> Maybe BoolReq
+makeMyInitNull resp = decodeStrict resp :: Maybe BoolReq
+ -- let res = helperN myInit
 
 helper :: Maybe InitReq -> InitReq
 helper (Just a) = a
@@ -93,7 +91,7 @@ helperB Nothing = InitTgB 1 1 " "
 
 helperN :: Maybe BoolReq -> BoolReq
 helperN (Just a) = a 
-helperN Nothing = BoolReq False
+helperN Nothing = BoolReq ()
 
 --jsonParser
 instance FromJSON InitReq where
@@ -126,9 +124,7 @@ instance FromJSON InitReqButton where
 instance FromJSON BoolReq where
   parseJSON (Object req) = do
     result <- req .: "result"
-    let arr = V.null result
-    res <- arr .: "null"
-    return $ BoolReq arr
+    return $ BoolReq result
 
   parseJSON _ = mzero
 
@@ -136,6 +132,10 @@ instance FromJSON BoolReq where
 mainFunc :: ConfData -> Map.Map Int Int -> IO ()
 mainFunc conf counter = do
   fstInitTmp <- doRequest
+  let fstInitN = makeMyInitNull fstInitTmp 
+  if fstInitN == Just (BoolReq ())
+     then mainFunc conf counter
+     else return ()
   fstInit <- makeMyInitResp fstInitTmp
   fstInitB <- makeMyInitRespB fstInitTmp
 
@@ -150,13 +150,11 @@ mainFunc conf counter = do
             "/repeat" -> testKeyboard (B8.fromString $ button conf) fstInit
             _ -> sendMesToTg (Map.lookup (justId fstInit) newCounter) fstInit 
           nextStep fstInit
-          print newCounter
           mainFunc conf newCounter
     else do
           let newC = read $ T.unpack (countB fstInitB) :: Int
           let newCounterB = Map.insert (justIdB fstInitB) newC counter
           nextStepB fstInitB
-          print newCounterB
           mainFunc conf newCounterB 
   
   return ()
